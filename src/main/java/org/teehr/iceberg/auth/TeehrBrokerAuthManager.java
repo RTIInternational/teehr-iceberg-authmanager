@@ -1,8 +1,10 @@
 package org.teehr.iceberg.auth;
 
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpClient.Version;
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
 import org.apache.iceberg.rest.RESTClient;
@@ -39,7 +41,7 @@ public class TeehrBrokerAuthManager implements AuthManager {
         return existing;
       }
 
-      String brokerUrl = required(properties, TeehrAuthProperties.BROKER_URL);
+      String brokerUrl = validatedBrokerUrl(required(properties, TeehrAuthProperties.BROKER_URL));
       String userId = required(properties, TeehrAuthProperties.USER_ID);
       String sessionId = required(properties, TeehrAuthProperties.SESSION_ID);
       String realm = required(properties, TeehrAuthProperties.REALM);
@@ -107,6 +109,49 @@ public class TeehrBrokerAuthManager implements AuthManager {
       throw new IllegalArgumentException("Missing required property: " + key);
     }
     return value;
+  }
+
+  private static String validatedBrokerUrl(String brokerUrl) {
+    URI uri = URI.create(brokerUrl);
+    String scheme = uri.getScheme();
+    String host = uri.getHost();
+
+    if (scheme == null || host == null || host.isBlank()) {
+      throw new IllegalArgumentException("Broker URL must include a valid scheme and host");
+    }
+
+    String normalizedScheme = scheme.toLowerCase(Locale.ROOT);
+    String normalizedHost = host.toLowerCase(Locale.ROOT);
+
+    boolean trusted =
+        switch (normalizedScheme) {
+          case "http" -> isTrustedHttpHost(normalizedHost);
+          case "https" -> isTrustedHttpsHost(normalizedHost);
+          default -> false;
+        };
+
+    if (!trusted) {
+      throw new IllegalArgumentException(
+          "Broker URL host/scheme is not in the trusted local or in-cluster allowlist: "
+              + brokerUrl);
+    }
+
+    return uri.toString();
+  }
+
+  private static boolean isTrustedHttpHost(String host) {
+    return isLoopbackHost(host)
+        || "teehr-api".equals(host)
+        || host.endsWith(".svc")
+        || host.endsWith(".svc.cluster.local");
+  }
+
+  private static boolean isTrustedHttpsHost(String host) {
+    return isTrustedHttpHost(host) || host.endsWith(".local.app.garden");
+  }
+
+  private static boolean isLoopbackHost(String host) {
+    return "localhost".equals(host) || "127.0.0.1".equals(host) || "::1".equals(host);
   }
 
   private static Supplier<String> subjectTokenSupplier(Map<String, String> properties) {

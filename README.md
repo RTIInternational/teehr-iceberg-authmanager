@@ -9,6 +9,43 @@ Standalone Maven project for the custom Iceberg REST AuthManager used by TEEHR P
 - Caches and refreshes tokens before expiry
 - Injects `Authorization: Bearer <token>` on Iceberg REST catalog requests
 
+## Configuration
+
+The auth manager reads Iceberg catalog properties under the `rest.auth.teehr.*` prefix.
+
+Required properties:
+
+- `rest.auth.teehr.broker.url`
+- `rest.auth.teehr.user-id`
+- `rest.auth.teehr.session-id`
+- `rest.auth.teehr.realm`
+
+Optional properties with defaults:
+
+- `rest.auth.teehr.catalog` (default: `iceberg`)
+- `rest.auth.teehr.audience` (default: `account`)
+- `rest.auth.teehr.request-timeout-ms` (default: `5000`)
+- `rest.auth.teehr.requested-ttl-seconds` (default: `600`)
+- `rest.auth.teehr.refresh-skew-seconds` (default: `60`)
+
+Subject and broker session token inputs:
+
+- `rest.auth.teehr.subject-token` (inline explicit token)
+- `rest.auth.teehr.subject-token-env` (default env var: `POLARIS_USER_TOKEN`)
+- `rest.auth.teehr.broker-session-token` (inline explicit token)
+- `rest.auth.teehr.broker-session-token-env` (default env var: `POLARIS_BROKER_SESSION_TOKEN`)
+
+Broker URL trust rules:
+
+- `http` is allowed only for: `localhost`, `127.0.0.1`, `::1`, `teehr-api`, `*.svc`, `*.svc.cluster.local`
+- `https` is allowed for the same hosts, plus `*.local.app.garden`
+- Other host/scheme combinations are rejected at initialization
+
+Security behavior notes:
+
+- Delegated-session fallback to direct subject-token exchange is disabled
+- If `/auth/polaris-token/session` fails, the auth request fails (no automatic downgrade)
+
 ## Build
 
 ```bash
@@ -29,12 +66,12 @@ Published Maven coordinates:
 - Group ID: `org.rtiamanzi`
 - Artifact ID: `teehr-iceberg-authmanager`
 
-Release process for a new version such as `0.0.2`:
+Release process for a new version such as `0.0.3`:
 
 1. Update the project version in `pom.xml`
 2. Update any version references in this README and in downstream consumers
 3. Commit the version change to `main`
-4. Create a Git tag matching the release, for example `v0.0.2`
+4. Create a Git tag matching the release, for example `v0.0.3`
 5. Push the tag and publish a GitHub Release from that tag
 6. Wait for `.github/workflows/publish.yml` to complete and verify the artifact in Maven Central
 
@@ -54,18 +91,18 @@ Downstream consumers to check after release:
 5. Create a GitHub release tag (for example `v0.0.1`)
 6. The publish workflow runs `mvn -Prelease deploy` and releases automatically
 
-Typical command sequence for `0.0.2`:
+Typical command sequence for `0.0.3`:
 
 ```bash
 git checkout main
 git pull --ff-only
-git commit -am "Release 0.0.2"
-git tag v0.0.2
+git commit -am "Release 0.0.3"
+git tag v0.0.3
 git push origin main
-git push origin v0.0.2
+git push origin v0.0.3
 ```
 
-Then create the GitHub Release for `v0.0.2` if you did not use the GitHub UI to create the tag first. The publish workflow is configured for both `release.published` and `workflow_dispatch`, but the normal release path should be a tagged GitHub Release.
+Then create the GitHub Release for `v0.0.3` if you did not use the GitHub UI to create the tag first. The publish workflow is configured for both `release.published` and `workflow_dispatch`, but the normal release path should be a tagged GitHub Release.
 
 For local manual deploys, configure `~/.m2/settings.xml` with a `central` server entry:
 
@@ -93,5 +130,5 @@ That local deploy path is useful for validating Central credentials and signing 
 
 ```bash
 --conf spark.sql.catalog.iceberg.rest.auth.type=org.teehr.iceberg.auth.TeehrBrokerAuthManager \
---conf spark.jars.packages=org.rtiamanzi:teehr-iceberg-authmanager:0.0.2
+--conf spark.jars.packages=org.rtiamanzi:teehr-iceberg-authmanager:0.0.3
 ```

@@ -59,19 +59,6 @@ final class BrokerTokenClient {
 
     HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-    if (shouldFallbackToSubjectExchange(response, brokerUrl, brokerSessionToken, subjectToken)) {
-      String directBrokerUrl = brokerUrl.replace("/auth/polaris-token/session", "/auth/polaris-token");
-      HttpRequest directRequest =
-          HttpRequest.newBuilder(URI.create(directBrokerUrl))
-              .header("Content-Type", "application/json")
-              .header("Authorization", "Bearer " + subjectToken)
-              .timeout(timeout)
-              .POST(HttpRequest.BodyPublishers.ofString(MAPPER.writeValueAsString(body)))
-              .build();
-
-      response = httpClient.send(directRequest, HttpResponse.BodyHandlers.ofString());
-    }
-
     if (response.statusCode() != 200) {
       String bodySnippet = response.body() == null ? "" : response.body();
       if (bodySnippet.length() > 500) {
@@ -101,32 +88,5 @@ final class BrokerTokenClient {
     }
 
     return new BrokerToken(accessToken, Instant.ofEpochSecond(expiresAtEpoch));
-  }
-
-  private static boolean shouldFallbackToSubjectExchange(
-      HttpResponse<String> response,
-      String brokerUrl,
-      String brokerSessionToken,
-      String subjectToken) {
-    if (response.statusCode() != 401) {
-      return false;
-    }
-    if (brokerSessionToken == null || brokerSessionToken.isBlank()) {
-      return false;
-    }
-    if (subjectToken == null || subjectToken.isBlank()) {
-      return false;
-    }
-    if (!brokerUrl.endsWith("/auth/polaris-token/session")) {
-      return false;
-    }
-
-    String body = response.body();
-    if (body == null || body.isBlank()) {
-      return false;
-    }
-
-    return body.contains("Delegated broker session not found")
-        || body.contains("Delegated broker session expired");
   }
 }
