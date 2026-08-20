@@ -6,7 +6,7 @@
 
   <groupId>org.rtiamanzi</groupId>
   <artifactId>teehr-iceberg-authmanager</artifactId>
-  <version>0.0.1</version>
+  <version>0.0.2</version>
   <name>TEEHR Iceberg AuthManager</name>
   <description>Broker-backed AuthManager for Iceberg REST catalog auth.</description>
   <url>https://github.com/RTIInternational/teehr-iceberg-authmanager</url>
